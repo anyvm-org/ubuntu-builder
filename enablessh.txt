@@ -1,0 +1,19 @@
+
+
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+
+# Re-affirm the sshd settings (root login + pubkey + password + env passing).
+# This file sorts before cloud-init's 50-cloud-init.conf, so "first match wins"
+# leaves our directives in effect.
+mkdir -p /etc/ssh/sshd_config.d
+cat >/etc/ssh/sshd_config.d/00-anyvm.conf <<'CONF'
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+KbdInteractiveAuthentication yes
+AcceptEnv *
+CONF
+
+systemctl restart ssh 2>/dev/null || service ssh restart 2>/dev/null || true
+
