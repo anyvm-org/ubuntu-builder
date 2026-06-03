@@ -3,6 +3,12 @@
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 
+# Generate the guest's own keypair. build.sh exports ~/.ssh/id_rsa.pub as
+# <output>-id_rsa.pub (the key the VM uses to connect back to the build host
+# for rsync/sshfs), so it must exist before build.sh reads it.
+rm -f ~/.ssh/id_rsa
+ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''
+
 # Re-affirm the sshd settings (root login + pubkey + password + env passing).
 # This file sorts before cloud-init's 50-cloud-init.conf, so "first match wins"
 # leaves our directives in effect.
