@@ -13,9 +13,11 @@ apt-get update || true
 # Make sure sshd survives the reboot that build.sh does right after this hook.
 systemctl enable ssh.service 2>/dev/null || systemctl enable ssh 2>/dev/null || true
 
-# Drop cloud-init's first-boot state so it does not try to re-disable our sshd
-# settings or re-run network bring-up on later boots. Harmless if absent.
-cloud-init clean --logs 2>/dev/null || true
+# NOTE: do NOT run "cloud-init clean" here. build.sh reboots right after this
+# hook, and a clean makes cloud-init treat the next boot as a new instance,
+# which (via ssh_deletekeys) regenerates the SSH host keys. The host key for the
+# VM's IP then changes mid-build and the next "ssh" fails with
+# "REMOTE HOST IDENTIFICATION HAS CHANGED" / host key verification failed.
 
 echo "ubuntu postBuild done."
 

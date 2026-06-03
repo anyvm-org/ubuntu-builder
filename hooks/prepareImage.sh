@@ -28,27 +28,26 @@ sudo chmod 0644 /boot/vmlinuz-* 2>/dev/null || true
 
 _pw="${VM_ROOT_PASSWORD:-ubuntu}"
 
-# A drop-in that sorts before cloud-init's 50-cloud-init.conf so that our
-# "first match wins" sshd directives take effect (cloud images disable root
-# login and password auth by default).
-_sshd_dropin='PermitRootLogin yes
-PasswordAuthentication yes
-PubkeyAuthentication yes
-KbdInteractiveAuthentication yes
-AcceptEnv *'
-
-# --no-network: our operations are all local (set password, inject key, write
-# files, enable units), so disable the libguestfs appliance network. Newer
-# libguestfs/qemu default it on and try to start "passt", which fails on
-# GitHub-hosted runners ("libguestfs error: passt exited with status 1").
+# Everything below is FILESYSTEM-level so the SAME command also works when we
+# customize an aarch64 image on this x86 runner. We deliberately avoid
+# --run-command, which has to execute a binary INSIDE the guest and fails
+# cross-arch with "host cpu (x86_64) and guest arch (aarch64) are not
+# compatible". --no-network disables the libguestfs appliance network (newer
+# libguestfs defaults it on and tries to start "passt", which fails on the
+# GitHub-hosted runner: "libguestfs error: passt exited with status 1").
+#
+# Access is granted by the injected root key. We append PermitRootLogin etc. to
+# the main sshd_config: cloud-init does not set PermitRootLogin, so our appended
+# line is the first (and only) active match and wins -- this also covers Debian
+# bullseye, whose stock sshd_config has no sshd_config.d include. ssh.service is
+# already enabled on cloud images, so no "systemctl enable" is needed.
 sudo -E virt-customize --no-network -a "$osname.qcow2" \
   --root-password "password:$_pw" \
   --ssh-inject "root:file:$_pub" \
-  --run-command 'mkdir -p /etc/ssh/sshd_config.d' \
-  --write "/etc/ssh/sshd_config.d/00-anyvm.conf:$_sshd_dropin" \
-  --write '/etc/cloud/cloud.cfg.d/99-anyvm-ds.cfg:datasource_list: [ NoCloud, None ]' \
-  --run-command 'systemctl enable ssh.service 2>/dev/null || systemctl enable ssh 2>/dev/null || true' \
-  --run-command 'systemctl enable serial-getty@ttyS0.service 2>/dev/null || true'
+  --append-line '/etc/ssh/sshd_config:PermitRootLogin yes' \
+  --append-line '/etc/ssh/sshd_config:PubkeyAuthentication yes' \
+  --append-line '/etc/ssh/sshd_config:AcceptEnv *' \
+  --write '/etc/cloud/cloud.cfg.d/99-anyvm-ds.cfg:datasource_list: [ NoCloud, None ]'
 
 # Make sure libvirt / qemu can read+write the image on the following steps.
 sudo chmod 0666 "$osname.qcow2" 2>/dev/null || true
