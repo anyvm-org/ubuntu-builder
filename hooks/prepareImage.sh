@@ -37,7 +37,11 @@ PubkeyAuthentication yes
 KbdInteractiveAuthentication yes
 AcceptEnv *'
 
-sudo -E virt-customize -a "$osname.qcow2" \
+# --no-network: our operations are all local (set password, inject key, write
+# files, enable units), so disable the libguestfs appliance network. Newer
+# libguestfs/qemu default it on and try to start "passt", which fails on
+# GitHub-hosted runners ("libguestfs error: passt exited with status 1").
+sudo -E virt-customize --no-network -a "$osname.qcow2" \
   --root-password "password:$_pw" \
   --ssh-inject "root:file:$_pub" \
   --run-command 'mkdir -p /etc/ssh/sshd_config.d' \
