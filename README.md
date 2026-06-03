@@ -3,7 +3,7 @@
 [![Build](https://github.com/anyvm-org/ubuntu-builder/actions/workflows/build.yml/badge.svg)](https://github.com/anyvm-org/ubuntu-builder/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/anyvm-org/ubuntu-builder?include_prereleases&sort=semver)](https://github.com/anyvm-org/ubuntu-builder/releases)
 
-Latest: 0.0.0
+Latest: v2.0.0
 
 
 The image builder for `ubuntu`
