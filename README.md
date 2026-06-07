@@ -34,6 +34,6 @@ How to build:
 
     Just clone the repo. and run:
     ```bash
-    bash build.sh conf/ubuntu-26.04.conf
+    python3 build.py conf/ubuntu-26.04.conf
     ```
    
