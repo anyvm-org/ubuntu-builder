@@ -35,9 +35,13 @@ while ! timeout 60 ssh "${SSH_OPTS[@]}" "root@127.0.0.1" exit >/dev/null 2>&1; d
   # debug round-trip when the build hangs in CI.
   if [ $((_n % 6)) -eq 0 ] && [ -f "$SERIAL_LOG" ]; then
     echo "--- serial log tail (iter $_n) ---"
-    tail -c 4096 "$SERIAL_LOG" \
+    # See host_waitForLoginTag.sh for why we strip C0 controls and pass -a
+    # to grep: the serial chardev contains ANSI / NUL bytes that otherwise
+    # confuse grep into emitting "binary file matches" instead of content.
+    tail -c 8192 "$SERIAL_LOG" \
+      | tr -d '\000\001\002\003\004\005\006\007\010\013\014\016\017\020\021\022\023\024\025\026\027\030\031\032\034\035\036\037' \
       | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r/\n/g' \
-      | grep -v '^[[:space:]]*$' \
+      | grep -av '^[[:space:]]*$' \
       | tail -10
     echo "--- end serial tail ---"
   fi
