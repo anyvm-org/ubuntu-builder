@@ -39,10 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["22.04", "24.04", "26.04"]
+        os: ["22.04", "24.04", "26.04", "22.04-aarch64", "24.04-aarch64", "26.04-aarch64"]
     runs-on: ubuntu-24.04
-    env:
-      SEC_VBOX : ${{ vars.SEC_VBOX }}
     steps:
 #    - name: Free Disk Space (Ubuntu)
 #      uses: jlumbroso/free-disk-space@main
