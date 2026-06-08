@@ -4,23 +4,54 @@
 #
 # Ubuntu cloud images boot to a serial getty, but the arch/console plumbing
 # makes OCR/console-text matching fragile (especially under aarch64 TCG).
-# Since prepareImage already baked SSH access into the qcow2, we just poll
-# the slirp hostfwd port on 127.0.0.1:$VM_SSH_PORT until sshd answers TCP.
-# At that point the system is up enough for host_enablessh.sh to take over.
+# Since prepareImage already baked SSH access into the qcow2, we poll the
+# slirp hostfwd port on 127.0.0.1:$VM_SSH_PORT until sshd actually answers.
 #
-# Under slirp the guest's 192.168.122.x is NOT routable from the host, so
-# the hostfwd port is the only way in -- do NOT try to reach the guest IP
-# directly here.
+# IMPORTANT: do NOT probe with a bare TCP connect (e.g. `echo > /dev/tcp/...`).
+# slirp's `hostfwd` makes QEMU listen on the HOST port the moment it starts,
+# completing the host-side 3-way handshake well before the guest kernel has
+# even POSTed. A bare TCP probe therefore returns "open" immediately and we
+# fall through to the real ssh phase against a guest that's nowhere near up.
+# Probe with `ssh ... exit` so the test only succeeds when the GUEST sshd
+# actually answers (which under TCG aarch64 / riscv64 on a 2-core GHA runner
+# can take 10-20 minutes after QEMU launch).
 
 set -u
+
+SSH_OPTS=(
+  -o StrictHostKeyChecking=no
+  -o UserKnownHostsFile=/dev/null
+  -o LogLevel=ERROR
+  -o ConnectTimeout=10
+  -o BatchMode=yes
+  -p "${VM_SSH_PORT}"
+)
+
+SERIAL_LOG="${VM_OS_NAME:-ubuntu}.serial.log"
+
 _n=0
-while [ "$_n" -lt 120 ]; do
-  if (echo > "/dev/tcp/127.0.0.1/${VM_SSH_PORT}") 2>/dev/null; then
-    echo "sshd is listening on 127.0.0.1:${VM_SSH_PORT}"
+# 240 iters * (timeout 30 + sleep 10) = up to ~2.5 h worst case; on KVM this
+# returns in seconds. The big ceiling is for cold TCG aarch64/riscv64 boots
+# where Ubuntu's apparmor.service alone can take 30+ minutes.
+while [ "$_n" -lt 240 ]; do
+  if timeout 30 ssh "${SSH_OPTS[@]}" "root@127.0.0.1" exit >/dev/null 2>&1; then
+    echo "sshd is answering ssh on 127.0.0.1:${VM_SSH_PORT}"
     break
   fi
-  echo "waiting for VM sshd on 127.0.0.1:${VM_SSH_PORT} ..."
-  sleep 5
+  # Every 6 iterations (~1 minute), dump the last 10 lines of the guest
+  # serial log so we can see how far the boot got -- "still in u-boot",
+  # "stuck on apparmor", "kernel panic", etc. Without this the wait is
+  # opaque and indistinguishable from a dead VM.
+  if [ $((_n % 6)) -eq 0 ] && [ -f "$SERIAL_LOG" ]; then
+    echo "--- serial log tail (iter $_n) ---"
+    tail -c 4096 "$SERIAL_LOG" \
+      | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r/\n/g' \
+      | grep -v '^[[:space:]]*$' \
+      | tail -10
+    echo "--- end serial tail ---"
+  fi
+  echo "waiting for VM sshd on 127.0.0.1:${VM_SSH_PORT} (iter $_n) ..."
+  sleep 10
   _n=$((_n + 1))
 done
 

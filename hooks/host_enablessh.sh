@@ -2,10 +2,12 @@
 # host-side enablessh hook -- runs after _gen_enablessh_local() has written
 # the enablessh.local script. The cloud image already has the build's
 # public key baked into root's authorized_keys (see host_prepareImage.sh),
-# so we just connect over the slirp hostfwd port and push enablessh.local
-# to re-affirm sshd config and re-add the key.
+# so we connect over the slirp hostfwd port and push enablessh.local to
+# re-affirm sshd config and re-add the key.
 #
-# Tolerant of transient failures so we don't trip "set -e" in main().
+# When this hook runs, host_waitForLoginTag has already gated on a real
+# ssh handshake, so this loop is mostly a belt-and-suspenders guard for
+# the gap between the gate ssh and this one.
 
 set -u
 
@@ -17,17 +19,32 @@ SSH_OPTS=(
   -p "${VM_SSH_PORT}"
 )
 
+SERIAL_LOG="${VM_OS_NAME:-ubuntu}.serial.log"
+
 # Ubuntu 24.04 uses systemd socket activation: ssh.socket binds :22 well
 # before sshd is actually ready to serve. The first connection waits while
 # systemd starts ssh@.service, which under TCG aarch64 emulation can take
-# 30-60s on its own. timeout 60 gives that slack; without it every probe
-# would die mid-handshake and the hook would spin forever.
+# 30-60 s on its own. timeout 60 gives that slack; without it every probe
+# would die mid-handshake and the hook would spin forever. Iteration cap is
+# 120 (~30 min) for the case where the guest is genuinely cold-booting
+# slowly under TCG on a 2-core GHA runner.
 _n=0
 while ! timeout 60 ssh "${SSH_OPTS[@]}" "root@127.0.0.1" exit >/dev/null 2>&1; do
-  echo "waiting for sshd on 127.0.0.1:${VM_SSH_PORT} ..."
+  # Dump a serial-log tail every 6 iters (~1 min) so we can see what the
+  # guest is doing instead of staring at opaque "waiting" lines. Saves a
+  # debug round-trip when the build hangs in CI.
+  if [ $((_n % 6)) -eq 0 ] && [ -f "$SERIAL_LOG" ]; then
+    echo "--- serial log tail (iter $_n) ---"
+    tail -c 4096 "$SERIAL_LOG" \
+      | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r/\n/g' \
+      | grep -v '^[[:space:]]*$' \
+      | tail -10
+    echo "--- end serial tail ---"
+  fi
+  echo "waiting for sshd on 127.0.0.1:${VM_SSH_PORT} (iter $_n) ..."
   sleep 10
   _n=$((_n + 1))
-  if [ "$_n" -gt 30 ]; then
+  if [ "$_n" -gt 120 ]; then
     echo "sshd did not come up in time, continuing anyway"
     break
   fi
