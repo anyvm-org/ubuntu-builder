@@ -1,7 +1,6 @@
 
 
 [![Build](https://github.com/anyvm-org/ubuntu-builder/actions/workflows/build.yml/badge.svg)](https://github.com/anyvm-org/ubuntu-builder/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/anyvm-org/ubuntu-builder?include_prereleases&sort=semver)](https://github.com/anyvm-org/ubuntu-builder/releases)
 
 Latest: v2.0.1
 
@@ -13,11 +12,11 @@ All the supported releases are here:
 
 
 
-| Release | x86_64 (amd64) | aarch64 (arm64) |
-|---------|----------------|-----------------|
-| 26.04   |  ✅            |  ✅             |
-| 24.04   |  ✅            |  ✅             |
-| 22.04   |  ✅            |  ✅             |
+| Release | x86_64 (amd64) | aarch64 (arm64) | riscv64 |
+|---------|----------------|-----------------|---------|
+| 26.04   |  ✅            |  ✅             |  ✅     |
+| 24.04   |  ✅            |  ✅             |  ✅     |
+| 22.04   |  ✅            |  ✅             |  ✅     |
 
 
 
