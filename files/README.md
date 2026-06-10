@@ -50,4 +50,21 @@ exact build inside a clean noble container. See the comment in
 conf/ubuntu-26.04-riscv64.conf.
 
 sha256:
-- qemu-10.2.3-riscv64-noble.tar.zst c618ffc6b4398886021c0eef7d41647eb38ec9981604450a0089101e0a2a8bb7
+- qemu-10.2.3-riscv64-noble.tar.zst a69c6d97a8fe6e8e1d531310b108d74aa436f8fca9825f620eb447abf7652ffe
+
+## qemu-10.2.3-s390x-noble.tar.zst
+
+`qemu-system-s390x` 10.2.3, same from-source noble-ABI build scheme as the
+riscv64 tarball above; pruned to `bin/qemu-system-s390x` +
+`share/qemu/{s390-ccw.img, s390-netboot.img, efi-virtio.rom, keymaps/}`.
+
+Why pinned: noble's stock QEMU 8.2 s390x TCG intermittently freezes the
+guest's systemd during startup ("Failed to fork off sandboxing
+environment for executing generators: Protocol error" -> "Freezing
+execution."), roughly once per several boots; a build then hangs at the
+ssh wait until the job times out. Rebooting the same disk comes up fine,
+so it is an emulator flake, not image corruption. 10.2.3 carries years of
+s390x TCG fixes. See the comment in conf/ubuntu-*-s390x.conf.
+
+sha256:
+- qemu-10.2.3-s390x-noble.tar.zst (see git history; updated alongside the file)
