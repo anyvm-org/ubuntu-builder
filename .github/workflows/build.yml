@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["22.04", "24.04", "26.04", "22.04-aarch64", "24.04-aarch64", "26.04-aarch64", "22.04-riscv64", "24.04-riscv64", "26.04-riscv64"]
+        os: ["22.04", "24.04", "26.04", "22.04-aarch64", "24.04-aarch64", "26.04-aarch64", "22.04-riscv64", "24.04-riscv64", "26.04-riscv64", "22.04-s390x", "24.04-s390x", "26.04-s390x"]
     runs-on: ubuntu-24.04
     steps:
 #    - name: Free Disk Space (Ubuntu)
