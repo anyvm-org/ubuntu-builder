@@ -3001,17 +3001,16 @@ def main(argv):
                                  "-o", "ServerAliveCountMax=20",
                                  osname, "sh"], input=payload.encode()).returncode
             if rc != 0:
-                log("install script FAILED rc=%d (packages may be missing)" % rc)
+                log("install script FAILED rc=%d" % rc)
                 # Fail the build: a green job that ships an artifact without
                 # its packages is worse than a red one (Ubuntu cloud images
                 # dropped their pre-baked universe indexes in the 2026-06-10
                 # serials and 12 jobs went green while every artifact was
                 # missing rsync/sshfs/nfs-common -- caught only by the
-                # downstream anyvm tests). VM_INSTALL_TOLERANT=1 restores
-                # the old log-and-continue behavior for guests whose package
-                # step is genuinely best-effort.
-                if not env("VM_INSTALL_TOLERANT"):
-                    return 1
+                # downstream anyvm tests). A package that genuinely cannot
+                # install on some release belongs OUT of that conf's
+                # VM_PRE_INSTALL_PKGS list, not silently tolerated.
+                return 1
         else:
             cmd = "%s %s" % (env("VM_INSTALL_CMD"), env("VM_PRE_INSTALL_PKGS"))
             log(cmd)
@@ -3020,10 +3019,9 @@ def main(argv):
                                  osname, "sh"],
                                 input=("set -e\n%s\n" % cmd).encode()).returncode
             if rc != 0:
-                log("install step FAILED rc=%d (packages may be missing)" % rc)
+                log("install step FAILED rc=%d" % rc)
                 # See the comment in the install-script branch above.
-                if not env("VM_INSTALL_TOLERANT"):
-                    return 1
+                return 1
 
     run_hook("finalize")
 
@@ -3077,13 +3075,23 @@ def main(argv):
             if startVM() != 0:
                 log("verification startVM failed; aborting")
                 return 1
-            vdeadline = time.time() + vmax
+            vstart = time.time()
+            vdeadline = vstart + vmax
             while time.time() < vdeadline:
                 ok, _err = _ssh_ready_check()
                 if ok:
                     verify_ready = True
                     break
-                log("not ready yet, just sleep."); time.sleep(5)
+                # Echo what the guest console is doing, same format as
+                # _wait_vm_down. Without this the CI log is just a wall of
+                # "not ready yet" and a failed verify boot is undiagnosable
+                # (seen on a flaky 15.0-kde6 run: 2x600s of silence, no way
+                # to tell bootloader hang from fsck from rc stall).
+                vsize, vtail = _serial_tail_line()
+                vmm, vss = divmod(int(time.time() - vstart), 60)
+                log("[%dm%02ds] verify boot %d/2, serial=%dB | %s"
+                    % (vmm, vss, vattempt, vsize, vtail[:140]))
+                time.sleep(5)
             if verify_ready:
                 break
             log("verification VM not ssh-reachable within %d s "
