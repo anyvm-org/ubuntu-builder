@@ -1,0 +1,23 @@
+  # Publish the static binaries committed under files/ (the pinned QEMU
+  # builds some guests need at run time) as release assets, so downstream
+  # consumers (anyvm's test workflows, end users) fetch them from the
+  # release alongside the VM images instead of from raw.githubusercontent.
+  # A single job, NOT part of the build matrix: every matrix job uploading
+  # the same asset name in parallel would race (GitHub rejects duplicate
+  # asset names), and the upload should not depend on any one image build
+  # succeeding. Injected via UPLOAD_FILES_JOB in .github/data/datafile.ini;
+  # builders without extra release files simply omit that key and the
+  # template placeholder renders empty.
+  release-files:
+    if: "contains(github.ref, 'refs/tags/')"
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+    - name: Upload files/ Release Assets
+      uses: softprops/action-gh-release@v3
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        files: |
+          files/qemu-10.2.3-riscv64-noble.tar.zst
+          files/qemu-10.2.3-s390x-noble.tar.zst
