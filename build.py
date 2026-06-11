@@ -941,12 +941,16 @@ def build_qemu_args(media_kind=None, media_path=None):
         # is the FreeBSD / Linux guest target on ppc64; powernv* is OPAL
         # bare-metal and won't boot a stock distro install ISO.
         #
-        # FreeBSD/powerpc64 is BIG-ENDIAN (ELFv1) and is the only ppc64
-        # target wired up. A little-endian port (powerpc64le, ELFv2) also
-        # exists, but its kernel takes an early Program Exception under
-        # QEMU TCG (illegal instruction at the VSX-unavailable vector) on
-        # every -cpu power8/9/10/max with QEMU 8.2.2, so it is intentionally
-        # not built here -- it would only boot on real POWER + KVM.
+        # Wired-up guests on this machine:
+        #  * FreeBSD/powerpc64 -- BIG-ENDIAN (ELFv1). Its little-endian
+        #    port (powerpc64le, ELFv2) is NOT buildable: that kernel takes
+        #    an early Program Exception under QEMU TCG (illegal instruction
+        #    at the VSX-unavailable vector) on every -cpu power8/9/10/max
+        #    with QEMU 8.2.2 -- it would only boot on real POWER + KVM.
+        #  * Ubuntu ppc64el (VM_ARCH=ppc64le) -- the Linux pseries kernel
+        #    has no such problem; the cloud image boots via SLOF -> grub
+        #    (PReP partition) -> kernel with console on the spapr-vty
+        #    (hvc0), which -serial chardev:serial0 already routes.
         #
         # Console: -serial chardev:serial0 is routed by pseries to the SPAPR
         # virtual teletype (spapr-vty), which the guest enumerates as
