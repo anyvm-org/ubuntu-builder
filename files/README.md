@@ -1,7 +1,13 @@
 # files/
 
-Static binaries the build needs at run time, committed so CI does not
-re-download them on every build.
+Build inputs the pipeline needs beyond the cloud images.
+
+Small binaries (the u-boot blobs) are committed directly. The pinned QEMU
+builds are NOT committed: `build-qemu10.sh` compiles them from source on
+the fly -- `hooks/host_beforeBuild.sh` builds the one tarball a conf's
+`VM_QEMU_TAR` asks for at the start of each image build, and the
+`release-files` job (.github/data/uploadfiles.yml) builds all of them when
+publishing release assets.
 
 ## u-boot-qemu_2024.01_qemu-riscv64_smode/
 
@@ -28,43 +34,44 @@ sha256:
 - uboot.elf  9f2a5fe41cd8c9f0f70b1e7f23cb45e24e1848eaf4cb4dd741a271ecdb9e6eab
 - u-boot.bin efa1d3d9b7a586154020141e4a24fe4cea2b2be8e173b08f8a82a6595e490474
 
-## qemu-10.2.3-riscv64-noble.tar.zst
+## build-qemu10.sh -> qemu-10.2.3-<arch>-noble.tar.zst
 
-`qemu-system-riscv64` 10.2.3 built from the upstream source tarball
-(https://download.qemu.org/qemu-10.2.3.tar.xz) inside an ubuntu:24.04
-container, so the binary links against noble's libraries -- the same ABI
-as the GitHub-hosted ubuntu-24.04 runner (the apt `qemu-system-misc`
-install in setup() provides the runtime libs: glib, pixman, slirp, fdt).
-configure: `--target-list=riscv64-softmmu` plus `--disable-*` for docs,
-GUI, and storage backends the builder never uses. The tree is pruned to
-`bin/qemu-system-riscv64` + `share/qemu/{opensbi-riscv64-generic-
-fw_dynamic.bin, efi-virtio.rom, keymaps/}` (QEMU finds the datadir
-relative to the binary).
+Builds `qemu-system-{riscv64,s390x,ppc64}` 10.2.3 from the upstream
+source tarball (https://download.qemu.org/qemu-10.2.3.tar.xz) against the
+host distro's libraries -- intended host is ubuntu-24.04 (noble), the
+GitHub Actions runner image, hence the "noble" in the tarball names (the
+apt qemu packages installed by setup() provide the runtime libs: glib,
+pixman, slirp, fdt). Each tarball is pruned to
+`qemu10-<arch>/bin/qemu-system-<qemu-arch>` plus only the firmware its
+machine type needs under `share/qemu/` (QEMU finds the datadir relative
+to the binary):
 
-Why pinned: Ubuntu 26.04 (resolute) riscv64 cannot run under noble's
-stock QEMU 8.2 -- the 7.0 kernel hangs at entry with zero serial output,
-and the userspace is built for the RVA23 profile baseline, so any
-pre-RVA23 -cpu model kills init with SIGILL. QEMU >= 9.1 provides the
-`rva23s64` CPU model; verified end-to-end to the login prompt with this
-exact build inside a clean noble container. See the comment in
-conf/ubuntu-26.04-riscv64.conf.
+- riscv64: opensbi-riscv64-generic-fw_dynamic.bin
+- s390x:   s390-ccw.img (s390-netboot.img is folded into it in QEMU >= 9.1)
+- ppc64le: slof.bin, vgabios-stdvga.bin (pseries SLOF + default std VGA)
+- all:     efi-virtio.rom (virtio-net default romfile), keymaps/
 
-sha256:
-- qemu-10.2.3-riscv64-noble.tar.zst a69c6d97a8fe6e8e1d531310b108d74aa436f8fca9825f620eb447abf7652ffe
+Why each arch is pinned to QEMU 10 instead of the runner's stock 8.2:
 
-## qemu-10.2.3-s390x-noble.tar.zst
-
-`qemu-system-s390x` 10.2.3, same from-source noble-ABI build scheme as the
-riscv64 tarball above; pruned to `bin/qemu-system-s390x` +
-`share/qemu/{s390-ccw.img, s390-netboot.img, efi-virtio.rom, keymaps/}`.
-
-Why pinned: noble's stock QEMU 8.2 s390x TCG intermittently freezes the
-guest's systemd during startup ("Failed to fork off sandboxing
-environment for executing generators: Protocol error" -> "Freezing
-execution."), roughly once per several boots; a build then hangs at the
-ssh wait until the job times out. Rebooting the same disk comes up fine,
-so it is an emulator flake, not image corruption. 10.2.3 carries years of
-s390x TCG fixes. See the comment in conf/ubuntu-*-s390x.conf.
-
-sha256:
-- qemu-10.2.3-s390x-noble.tar.zst (see git history; updated alongside the file)
+- **riscv64**: Ubuntu 26.04 (resolute) cannot run under 8.2 -- the 7.0
+  kernel hangs at entry with zero serial output, and the userspace is
+  built for the RVA23 profile baseline, so any pre-RVA23 -cpu model kills
+  init with SIGILL. QEMU >= 9.1 provides the `rva23s64` CPU model;
+  verified end-to-end to the login prompt with 10.2.3. See
+  conf/ubuntu-26.04-riscv64.conf.
+- **s390x**: stock 8.2 TCG intermittently freezes the guest's systemd
+  during startup ("Failed to fork off sandboxing environment for
+  executing generators: Protocol error" -> "Freezing execution."),
+  roughly once per several boots; a build then hangs at the ssh wait
+  until the job times out. Rebooting the same disk comes up fine, so it
+  is an emulator flake, not image corruption. 10.2.3 carries years of
+  s390x TCG fixes. See conf/ubuntu-*-s390x.conf.
+- **ppc64le**: under 8.2 pseries TCG with -cpu power9, Ubuntu 22.04
+  (jammy) userspace is miscompiled at translation time -- python3.10
+  segfaults reproducibly (NULL derefs inside _PyEval_EvalFrameDefault,
+  hitting every cloud-init stage and package-data-downloader, 1 or 2
+  vCPUs alike), so the image never generates ssh host keys and never
+  brings up sshd. -cpu power8 is not an option (jammy ppc64el is POWER9
+  baseline; init dies in an illegal-instruction kernel panic). 24.04 /
+  26.04 (python 3.12/3.13) do not hit the bug on 8.2 and keep using
+  stock QEMU. See conf/ubuntu-22.04-ppc64le.conf.
