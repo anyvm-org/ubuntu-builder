@@ -68,6 +68,13 @@ if [ "$(uname -m)" = "riscv64" ] && grep -q 'VERSION_ID="22.04"' /etc/os-release
     fi
 fi
 
+
+
+
+passwd -d root
+
+
+
 echo "ubuntu postBuild done."
 
 exit 0
