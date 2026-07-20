@@ -9,7 +9,11 @@
 
 set -e
 
-echo "Preparing ${VM_OS_NAME}.qcow2 with virt-customize"
+# build.py writes the working image under build/ (VM_WORK_QCOW); fall back to
+# the repo-root name for a standalone hook run.
+_qcow="${VM_WORK_QCOW:-${VM_OS_NAME}.qcow2}"
+
+echo "Preparing ${_qcow} with virt-customize"
 
 # Generate the build's SSH keypair now so we can inject its public key into
 # the image. build.py would otherwise create the same key later; reuse it.
@@ -44,7 +48,7 @@ _pw="${VM_ROOT_PASSWORD:-ubuntu}"
 # covers Debian bullseye, whose stock sshd_config has no sshd_config.d
 # include. ssh.service is already enabled on cloud images, so no
 # "systemctl enable" is needed.
-sudo -E virt-customize --no-network -a "${VM_OS_NAME}.qcow2" \
+sudo -E virt-customize --no-network -a "${_qcow}" \
   --root-password "password:$_pw" \
   --ssh-inject "root:file:$_pub" \
   --append-line '/etc/ssh/sshd_config:PermitRootLogin yes' \
@@ -53,7 +57,7 @@ sudo -E virt-customize --no-network -a "${VM_OS_NAME}.qcow2" \
   --write '/etc/cloud/cloud.cfg.d/99-anyvm-ds.cfg:datasource_list: [ NoCloud, None ]'
 
 # Make sure qemu can read+write the image on the following steps.
-sudo chmod 0666 "${VM_OS_NAME}.qcow2" 2>/dev/null || true
+sudo chmod 0666 "${_qcow}" 2>/dev/null || true
 
 echo "Image prepared:"
-ls -lh "${VM_OS_NAME}.qcow2"
+ls -lh "${_qcow}"
