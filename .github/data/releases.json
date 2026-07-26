@@ -1,0 +1,140 @@
+{
+  "os": "ubuntu",
+  "releases": [
+    {
+      "tag": "22.04",
+      "release": "22.04",
+      "arch": "x86_64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "22.04-aarch64",
+      "release": "22.04",
+      "arch": "aarch64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "22.04-riscv64",
+      "release": "22.04",
+      "arch": "riscv64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "22.04-s390x",
+      "release": "22.04",
+      "arch": "s390x",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "22.04-ppc64le",
+      "release": "22.04",
+      "arch": "ppc64le",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "24.04",
+      "release": "24.04",
+      "arch": "x86_64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "24.04-aarch64",
+      "release": "24.04",
+      "arch": "aarch64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "24.04-riscv64",
+      "release": "24.04",
+      "arch": "riscv64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "24.04-s390x",
+      "release": "24.04",
+      "arch": "s390x",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "24.04-ppc64le",
+      "release": "24.04",
+      "arch": "ppc64le",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "26.04",
+      "release": "26.04",
+      "arch": "x86_64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "26.04-aarch64",
+      "release": "26.04",
+      "arch": "aarch64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "26.04-riscv64",
+      "release": "26.04",
+      "arch": "riscv64",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "26.04-s390x",
+      "release": "26.04",
+      "arch": "s390x",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    },
+    {
+      "tag": "26.04-ppc64le",
+      "release": "26.04",
+      "arch": "ppc64le",
+      "sync": "rsync,scp,sshfs,nfs",
+      "shutdown": "shutdown -h now",
+      "desktop": false,
+      "build": true
+    }
+  ]
+}
