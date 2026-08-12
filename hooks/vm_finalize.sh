@@ -26,7 +26,27 @@ echo "=== finalize: image cleanup ==="
 # the measurement that matters, not a laptop.
 #
 # initramfs-tools images (24.04 and older) have no dracut and skip this.
-if command -v dracut >/dev/null 2>&1 && [ -d /etc/dracut.conf.d ]; then
+#
+# s390x is EXCLUDED, on evidence from run 31559841601 -- it is the one arch
+# where this both gains nothing and breaks the image:
+#
+#   arch      stock   slim    post-export verification boot
+#   x86_64     67M     42M    ok
+#   aarch64    85M     64M    ok
+#   ppc64le    70M     45M    ok
+#   riscv64    73M     50M    ok
+#   s390x      27M     26M    NEVER BECAME SSH-REACHABLE
+#
+# s390x ships far fewer drivers and firmware blobs, so its stock initrd is
+# already a quarter the size of the others and there is nothing to trim --
+# but the slimmed initrd stops booting: the verification VM wedges about
+# 4.8s in with a kernel backtrace and the serial log freezes at 26 KB, twice
+# in a row, 600s each. Which omitted module s390x actually needs was not
+# determined; 1M of savings does not justify finding out.
+_arch="$(uname -m 2>/dev/null || echo unknown)"
+if [ "$_arch" = "s390x" ]; then
+    echo "--- s390x: skipping the dracut slim (breaks boot, saves ~1M) ---"
+elif command -v dracut >/dev/null 2>&1 && [ -d /etc/dracut.conf.d ]; then
     echo "--- slimming the dracut initrd ---"
     _kver="$(uname -r)"
     echo "before: $(ls -lh "/boot/initrd.img-$_kver" 2>/dev/null | awk '{print $5}')"
