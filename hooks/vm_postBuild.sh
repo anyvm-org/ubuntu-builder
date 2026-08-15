@@ -21,6 +21,71 @@ echo "=================== ubuntu postBuild ===="
 echo "--- enabling ssh.service ---"
 systemctl enable ssh.service 2>/dev/null || systemctl enable ssh 2>/dev/null || true
 
+# --- kill the background apt auto-update machinery ----------------------
+# Ubuntu cloud images ship apt-daily.timer / apt-daily-upgrade.timer plus
+# unattended-upgrades, all of which fire within a couple of minutes of every
+# boot and take the dpkg frontend lock. A short-lived VM is handed to the
+# user the moment sshd answers, so the user's very first command races them:
+#
+#   E: Could not get lock /var/lib/dpkg/lock-frontend.
+#      It is held by process 989 (apt-get)
+#
+# apt then exits 100 and the job fails. Seen in vmactions/ubuntu-vm run
+# 31873383879: the VM went ready at 08:14:23, apt-daily-upgrade.service had
+# started at 08:13:58, and the `prepare: apt-get install -y socat` step died
+# 16s later. Nothing in a disposable CI VM benefits from background upgrades
+# -- they only mutate the system underneath the job -- so switch them off
+# permanently.
+#
+# Order matters: stop anything already running (a mask does not stop a live
+# unit), then disable, then mask so a later package upgrade cannot quietly
+# re-enable the units. This block must stay AHEAD of every apt-get in this
+# hook, and it protects the VM_PRE_INSTALL_PKGS install build.py runs after
+# the reboot as well.
+echo "--- disabling apt auto-update timers/services ---"
+_apt_auto_units="apt-daily.timer apt-daily-upgrade.timer apt-daily.service
+apt-daily-upgrade.service unattended-upgrades.service"
+systemctl stop $_apt_auto_units 2>/dev/null || true
+systemctl disable apt-daily.timer apt-daily-upgrade.timer \
+    unattended-upgrades.service 2>/dev/null || true
+systemctl mask $_apt_auto_units 2>/dev/null || true
+
+# Belt and braces, and the part that survives a systemd-unit reshuffle: with
+# every APT::Periodic interval at 0 the periodic work is a no-op even if a
+# unit comes back. This is the same file the cloud image ships.
+cat > /etc/apt/apt.conf.d/20auto-upgrades <<'APTAUTOEOF'
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::Unattended-Upgrade "0";
+APT::Periodic::AutocleanInterval "0";
+APTAUTOEOF
+
+# Make apt-get WAIT for the dpkg lock instead of dying on it. apt ships a
+# 120s default for its own `apt` frontend but leaves `apt-get` -- the one
+# every script and CI job actually calls -- at 0, i.e. fail immediately:
+#
+#   $ apt-config dump | grep -i lock::timeout
+#   binary::apt::DPkg::Lock::Timeout "120";
+#
+# That asymmetry is the whole reason `apt-get install` reports the lock as a
+# hard error. Setting it globally makes apt-get behave like apt. This is the
+# safety net for anything that grabs the lock that we did NOT disable above
+# (a user's own background job, a cloud-init module still finishing), so
+# keep it even though the auto-update units are masked. Supported since apt
+# 2.0; the oldest release built here is jammy with apt 2.4.5.
+cat > /etc/apt/apt.conf.d/99anyvm-lock-timeout <<'APTLOCKEOF'
+DPkg::Lock::Timeout "120";
+APTLOCKEOF
+
+# Wait out an upgrade that was already mid-flight when we stopped it, so the
+# apt-get calls below (and build.py's install step) find the lock free.
+_n=0
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 && [ $_n -lt 60 ]; do
+    [ $_n -eq 0 ] && echo "--- waiting for the dpkg lock to be released ---"
+    _n=$((_n + 1))
+    sleep 5
+done
+
 # NOTE: do NOT run "cloud-init clean" here. build.py reboots right after
 # this hook, and a clean makes cloud-init treat the next boot as a new
 # instance, which (via ssh_deletekeys) regenerates the SSH host keys. The
